@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DIVE in BKK — Full Exchange Platform</title>
+<style>
+:root{--bg:#fff;--purple:#4b2d6b;--accent:#6a0dad;--muted:#666;--card:#f6f3fa}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:#111;padding:12px}
+header{background:var(--accent);color:#fff;padding:14px;border-radius:10px;text-align:center;font-weight:800;font-size:20px;letter-spacing:1px;cursor:pointer;user-select:none}
+.wrap{max-width:900px;margin:12px auto;display:grid;gap:12px}
+.card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(75,45,107,0.06)}
+.row{display:flex;gap:10px;align-items:center}
+.col{display:flex;flex-direction:column;gap:8px}
+h2{color:var(--purple);margin:0 0 6px 0}
+.timestamp{font-size:14px;color:var(--muted);text-align:right}
+#rateDisplay p{margin:6px 0;font-size:15px;color:#222}
+#rateDisplay b{font-weight:800;font-size:1.2rem;color:var(--purple)}
+.btn{background:var(--accent);color:white;border:none;padding:10px 12px;border-radius:10px;font-weight:700;cursor:pointer}
+.btn.ghost{background:#fff;border:1px solid rgba(0,0,0,0.06);color:var(--purple)}
+.btn.warn{background:#d9534f}
+.selector{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.option{padding:10px 14px;border-radius:10px;border:1px solid rgba(75,45,107,0.12);cursor:pointer;background:#fff;color:var(--purple);font-weight:700}
+.option.active{background:var(--purple);color:#fff;box-shadow:0 8px 20px rgba(75,45,107,0.08)}
+.input-row{display:flex;gap:8px;flex-wrap:wrap}
+input[type="number"], input[type="file"], input[type="text"], input[type="password"]{flex:1;padding:12px;border-radius:10px;border:1px solid #ddd;font-size:16px}
+.muted{color:var(--muted);font-size:13px}
+.history-box{max-height:180px;overflow:auto;padding:8px;background:#fff;border-radius:8px;border:1px dashed rgba(0,0,0,0.04)}
+.history-box li{margin-bottom:8px;font-size:13px}
+.payment-method{padding:10px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);margin-bottom:8px;background:#fff;display:flex;align-items:center;flex-direction:column;user-select:none}
+.payment-method span{user-select:text;font-weight:700}
+.summary{background:#fff;padding:10px;border-radius:10px;margin-bottom:12px}
+.file-preview{font-size:13px;color:var(--purple);margin-bottom:6px}
+.slip-thumb{width:60px;height:60px;object-fit:cover;margin:4px;border-radius:6px;border:1px solid #ccc;cursor:pointer}
+.hidden{display:none}
+.orders-item{padding:8px;border-bottom:1px dashed #eee;display:flex;flex-direction:column;gap:4px}
+.orders-files{display:flex;gap:6px;flex-wrap:wrap}
+.orders-files a{font-size:12px;color:var(--purple)}
+.alert{color:red;font-weight:700;margin:6px 0;}
+</style>
+</head>
+<body>
+<header id="header">DIVE in BKK 💱</header>
+<div class="wrap">
+
+<!-- Client login/create -->
+<div class="card" id="clientLoginCard">
+  <h2>Welcome! Please login or create an account</h2>
+  <label class="muted">Username</label>
+  <input type="text" id="clientUsernameInput" placeholder="Your username">
+  <div style="margin-top:10px;display:flex;gap:8px">
+    <button class="btn" onclick="saveClientAccount()">Continue</button>
+  </div>
+</div>
+
+<!-- Rates display -->
+<div class="card hidden" id="ratesCard">
+  <div class="row">
+    <div style="flex:1">
+      <h2>Current Rates</h2>
+      <div id="rateDisplay">
+        <p>Kyats → Baht: <b id="kyatToBahtDisplay">810 (123.45)</b></p>
+        <p>Bahts → Kyats: <b id="bahtToKyatDisplay">825 (121.21)</b></p>
+      </div>
+    </div>
+    <div style="width:220px">
+      <div class="timestamp" id="clock">—</div>
+      <div class="muted" style="text-align:right">Bangkok time</div>
+    </div>
+  </div>
+</div>
+
+<!-- Exchange Calculator -->
+<div class="card hidden" id="calculatorCard">
+  <h2>Exchange Calculator</h2>
+  <div class="selector">
+    <div class="option active" id="optKyat" onclick="setTransaction('kyatToBaht', this)">Kyat → Baht</div>
+    <div class="option" id="optBaht" onclick="setTransaction('bahtToKyat', this)">Baht → Kyat</div>
+  </div>
+  <div style="margin-top:12px" class="col">
+    <div class="input-row">
+      <input id="fromInput" type="number" placeholder="You want to exchange" oninput="calculateFrom()">
+      <input id="toInput" type="number" placeholder="You will get" oninput="calculateTo()">
+    </div>
+    <div class="row" style="justify-content:space-between;align-items:center;margin-top:10px">
+      <div class="muted" id="calcNote">Using current rates</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn ghost" onclick="clearCalc()">Clear</button>
+        <button class="btn" id="exchangeNowBtn" onclick="goToPayment()" disabled>Exchange Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Page -->
+<div class="card hidden" id="paymentCard">
+  <h2>Confirm Payment</h2>
+  <div id="paymentMethods"></div>
+  <div class="alert">Any currency change related notes in the slip may occur loss. Be cautious with your notes.</div>
+  <label>Upload Payment Slip(s) (JPG only)</label>
+  <input type="file" id="paymentSlip" accept=".jpg" multiple>
+  <div class="file-preview" id="filePreview"></div>
+  <button class="btn" onclick="confirmPayment()">Confirm Payment</button>
+</div>
+
+<!-- Orders History -->
+<div class="card hidden" id="ordersCard">
+  <h2>Your Orders</h2>
+  <div id="ordersList" class="history-box"></div>
+</div>
+
+<script>
+// -------------------- GLOBAL --------------------
+let rates={kyat100k:810,kyat1:123.45,baht100k:825,baht1:121.21};
+let txn='kyatToBaht';
+let fromInput,toInput;
+let clientID='';
+let orders=[];
+
+// -------------------- CLIENT ACCOUNT --------------------
+function saveClientAccount(){
+  const username=document.getElementById('clientUsernameInput').value.trim();
+  if(!username){alert('Enter a username');return;}
+  clientID=username;
+  localStorage.setItem('clientID',clientID);
+  document.getElementById('clientLoginCard').classList.add('hidden');
+  document.getElementById('ratesCard').classList.remove('hidden');
+  document.getElementById('calculatorCard').classList.remove('hidden');
+  document.getElementById('ordersCard').classList.remove('hidden');
+  initCalcInputs();
+  loadOrders();
+}
+
+// -------------------- CALCULATOR --------------------
+function initCalcInputs(){
+  fromInput=document.getElementById('fromInput');
+  toInput=document.getElementById('toInput');
+  setTransaction('kyatToBaht',document.getElementById('optKyat'));
+}
+
+function setTransaction(type,el){
+  txn=type;
+  document.querySelectorAll('.option').forEach(o=>o.classList.remove('active'));
+  el.classList.add('active');
+  fromInput.value='';toInput.value='';
+  if(type==='kyatToBaht'){
+    fromInput.placeholder="You want to exchange (MMK)";
+    toInput.placeholder="You will get (THB)";
+  } else {
+    fromInput.placeholder="You want to exchange (THB)";
+    toInput.placeholder="You will get (MMK)";
+  }
+  updateExchangeBtnState();
+}
+
+// Calculations
+function kyatToBahtCalc(fromValue,toValue,isFromInput){
+  if(isFromInput){ return (fromValue*rates.kyat100k/100000).toFixed(2);}
+  else{ return (toValue*100000/rates.kyat100k).toFixed(0);}
+}
+function bahtToKyatCalc(fromValue,toValue,isFromInput){
+  if(isFromInput){ return (fromValue*100000/rates.baht100k).toFixed(0);}
+  else{ return (toValue*rates.baht100k/100000).toFixed(2);}
+}
+
+function calculateFrom(){
+  if(!fromInput.value){toInput.value='';updateExchangeBtnState();return;}
+  if(txn==='kyatToBaht'){toInput.value=kyatToBahtCalc(parseFloat(fromInput.value),0,true);}
+  else{toInput.value=bahtToKyatCalc(parseFloat(fromInput.value),0,true);}
+  updateExchangeBtnState();
+}
+function calculateTo(){
+  if(!toInput.value){fromInput.value='';updateExchangeBtnState();return;}
+  if(txn==='kyatToBaht'){fromInput.value=kyatToBahtCalc(0,parseFloat(toInput.value),false);}
+  else{fromInput.value=bahtToKyatCalc(0,parseFloat(toInput.value),false);}
+}
+function clearCalc(){fromInput.value='';toInput.value='';updateExchangeBtnState();}
+function updateExchangeBtnState(){document.getElementById('exchangeNowBtn').disabled=!(fromInput.value&&toInput.value);}
+
+// -------------------- CLOCK --------------------
+function updateClock(){
+  const bangkokTime=new Date().toLocaleTimeString('en-US',{hour12:false,timeZone:'Asia/Bangkok'});
+  document.getElementById('clock').textContent=bangkokTime;
+}
+setInterval(updateClock,1000);updateClock();
+
+// -------------------- DISPLAY RATES --------------------
+function displayRates(){
+  document.getElementById('kyatToBahtDisplay').innerHTML=`<b>${rates.kyat100k} (${rates.kyat1})</b>`;
+  document.getElementById('bahtToKyatDisplay').innerHTML=`<b>${rates.baht100k} (${rates.baht1})</b>`;
+}
+displayRates();
+
+// -------------------- PAYMENT --------------------
+function goToPayment(){
+  document.getElementById('calculatorCard').classList.add('hidden');
+  document.getElementById('paymentCard').classList.remove('hidden');
+  showPaymentMethods();
+}
+
+function showPaymentMethods(){
+  const container=document.getElementById('paymentMethods');
+  container.innerHTML='';
+  if(txn==='kyatToBaht'){
+    const methods=[
+      {title:'KBZpay/Wavepay',number:'09267457172',name:'Pyae Sone Win Hlaing'},
+      {title:'KBZ special',number:'04151104102261901',name:'Pyae Sone Win Hlaing'},
+      {title:'CB special',number:'0148600900020327',name:'Pyae Sone Win Hlaing'}
+    ];
+    methods.forEach(m=>{
+      const div=document.createElement('div');
+      div.className='payment-method';
+      div.innerHTML=`<span>${m.title}</span><span>${m.number}</span><span>${m.name}</span>`;
+      container.appendChild(div);
+    });
+  } else {
+    const m={title:'Bangkok Bank',number:'047-0-462466',name:'Khin Mar Kyi'};
+    const div=document.createElement('div');
+    div.className='payment-method';
+    div.innerHTML=`<span>${m.title}</span><span>${m.number}</span><span>${m.name}</span>`;
+    container.appendChild(div);
+  }
+}
+
+document.getElementById('paymentSlip').addEventListener('change',function(){
+  const preview=document.getElementById('filePreview');
+  preview.innerHTML='';
+  Array.from(this.files).forEach(f=>{
+    const img=document.createElement('img');
+    img.src=URL.createObjectURL(f);
+    img.className='slip-thumb';
+    preview.appendChild(img);
+  });
+});
+
+function confirmPayment(){
+  const files=document.getElementById('paymentSlip').files;
+  if(!files.length){alert('Upload at least one slip');return;}
+  const bangkokTime=new Date().toLocaleString('en-US',{timeZone:'Asia/Bangkok'});
+  const order={txn,from:fromInput.value,to:toInput.value,time:bangkokTime,files:Array.from(files).map(f=>f.name)};
+  orders.push(order);
+  localStorage.setItem(clientID+'_orders',JSON.stringify(orders));
+  alert('Payment confirmed! Order saved.');
+  document.getElementById('paymentCard').classList.add('hidden');
+  document.getElementById('calculatorCard').classList.remove('hidden');
+  fromInput.value='';toInput.value='';updateExchangeBtnState();
+  loadOrders();
+}
+
+// -------------------- ORDERS HISTORY --------------------
+function loadOrders(){
+  const stored=localStorage.getItem(clientID+'_orders');
+  orders=stored?JSON.parse(stored):[];
+  const list=document.getElementById('ordersList');
+  list.innerHTML='';
+  orders.forEach(o=>{
+    const div=document.createElement('div');
+    div.className='orders-item';
+    div.innerHTML=`<div><b>${o.txn==='kyatToBaht'?'Kyat→Baht':'Baht→Kyat'}</b> ${o.from} → ${o.to}</div><div class="muted">${o.time}</div>`;
+    list.appendChild(div);
+  });
+}
+</script>
+</body>
+</html>
